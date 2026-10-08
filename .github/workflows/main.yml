@@ -22,27 +22,38 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Extract Android project
         run: |
+          rm -rf build-source
           mkdir -p build-source
           unzip -q ZEROFLIX-Android-WebView-PHONE-BUILD.zip -d build-source
 
       - name: Find Android project
         run: |
-          PROJECT_DIR=$(dirname "$(find build-source -type f -name gradlew | head -n 1)")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          echo "Android project found at: $PROJECT_DIR"
+          PROJECT_DIR=$(dirname "$(find build-source -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) | head -n 1)")
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android project not found"
+            find build-source -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Build APK
         run: |
           cd "$PROJECT_DIR"
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          gradle assembleDebug --no-daemon
 
       - name: Prepare APK
         run: |
           APK=$(find "$PROJECT_DIR" -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "APK was not created"
+            exit 1
+          fi
           cp "$APK" ZEROFLIX-debug.apk
 
       - name: Upload APK
