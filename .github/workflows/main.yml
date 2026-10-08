@@ -1,0 +1,52 @@
+name: Build ZEROFLIX APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Extract Android project
+        run: |
+          mkdir -p build-source
+          unzip -q ZEROFLIX-Android-WebView-PHONE-BUILD.zip -d build-source
+
+      - name: Find Android project
+        run: |
+          PROJECT_DIR=$(dirname "$(find build-source -type f -name gradlew | head -n 1)")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Android project found at: $PROJECT_DIR"
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Prepare APK
+        run: |
+          APK=$(find "$PROJECT_DIR" -type f -name "*.apk" | head -n 1)
+          cp "$APK" ZEROFLIX-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZEROFLIX-APK
+          path: ZEROFLIX-debug.apk
